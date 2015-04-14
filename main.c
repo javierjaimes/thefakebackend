@@ -6,10 +6,48 @@
 #include <unistd.h>
 #include <pthread.h>
 
+//TODO: Check if this is necesary
+int opt = 0;
+struct opts {
+  long int SERVER_PORT;
+};
+
+
+//TODO: Refactor multithreading
 void *connection_handler( void * );
 
 int main(int argc, char *argv[])
 {
+  
+  //TODO: maybe delete this
+  char *port, *endptr;
+
+  //TODO: Refactor OPTS
+  struct opts OPTS;
+  OPTS.SERVER_PORT = 8888;
+
+  
+  //TODO: Reading Arguments
+  while((opt = getopt(argc, argv, "p:")) != -1)
+  {
+    switch (opt)
+    {
+      case 'p':
+      OPTS.SERVER_PORT  = strtol(optarg, &endptr, 10);
+      break;
+
+      case '?':
+      if (optopt == 'p')
+      {
+        puts("Missing mandatory PORT option");
+      } else 
+      {
+        puts("Invalid option received");
+      }
+      break;
+    }
+  }
+
   int socket_desc, new_socket, c, *new_sock;
   struct sockaddr_in server, client;
   char *message;
@@ -22,23 +60,23 @@ int main(int argc, char *argv[])
 
   server.sin_family = AF_INET;
   server.sin_addr.s_addr = INADDR_ANY;
-  server.sin_port = htons( 8888 );
+  server.sin_port = htons(OPTS.SERVER_PORT);
 
   if( bind(socket_desc, (struct sockaddr *)&server, sizeof(server)) < 0)
   {
     puts("bind failed");
+    return 1;
   }
-  puts("bind done");
+  printf("Initializing The Faker Backend Server\r\n");
   
-  listen(socket_desc, 3);
+  listen(socket_desc, 5);
 
-  puts("Waiting for incoming connections...");
+  printf("The Faker Backend is listening on http://localhost:%ld...\r\n", OPTS.SERVER_PORT);
+  printf("Waiting for incoming connections...\r\n");
   c = sizeof(struct sockaddr_in);
   while ( (new_socket = accept(socket_desc, (struct sockaddr *)&client, (socklen_t *)&c ) ) )
   {
-    puts("Connection accepted");
-    message = "Hello Client, I have received your connection. But I have to go now, bye\n";
-    write(new_socket, message, strlen(message));
+    //puts("Connection accepted");
 
     pthread_t sniffer_thread;
     new_sock = malloc(1);
@@ -66,32 +104,37 @@ void *connection_handler(void *socket_desc)
 {
   int sock = *(int *)socket_desc;
   int read_size;
-  char *message, client_message[2000];
-
-  message = "Greetings! I am your connection handler\n";
-  write(sock, message, strlen(message));
-
-  message = "Now type something and I shall repeat what you type \n";
-  write(sock, message, strlen(message));
+  char *message, client_message[2000], *pch;
 
   read_size = recv(sock, client_message, 2000, 0);
+  //puts(client_message);
 
-  puts(client_message);
 
-  /*while( (read_size = recv(sock, client_message, 2000, 0)) > 0 )
+  //TODO: Parser HTTP Headers
+  pch = strtok(client_message, "\r\n");
+  while (pch != NULL)
   {
-    write(sock, client_message, strlen(client_message));
+    printf ("%s\n",pch);
+    pch = strtok (NULL, "\r\n");
   }
 
-  if (read_size == 0)
-  {
-    puts("Client disconnected");
-    fflush(stdout);
-  }
-  else if (read_size == -1)
-  {
-    perror("recv failed");
-  }*/
+  //TODO: Refactor The Response Headers
+  //message = "HTTP/1.1 404 Not Found\r\n";
+  message = "HTTP/1.1 201 Ok\r\n";
+  send(sock, message, strlen(message), 0);
+
+  message = "Server: The Fake Server\r\n";
+  send(sock, message, strlen(message), 0);
+
+  message = "Connection: close\r\n";
+  send(sock, message, strlen(message), 0);
+
+
+  message = "\r\n";
+  send(sock, message, strlen(message), 0);
+
+  message = "Body";
+  send(sock, message, strlen(message), 0);
 
   close(sock);
 
