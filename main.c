@@ -5,11 +5,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <time.h>
 #include "headers/header.h"
 #include "headers/querystring.h"
 
 #define DELIMITERS "\r\n"
 
+//Set up
+#define LEN 150
 
 //TODO: Check if this is necesary
 int opt = 0;
@@ -120,10 +123,9 @@ void *connection_handler(void *socket_desc)
   struct Request Req;
 
   int sock = *(int *)socket_desc;
-  int read_size;
   char *message, client_message[10000], *strtorequest;
 
-  read_size = recv(sock, client_message, 10000, 0);
+  recv(sock, client_message, 10000, 0);
   //puts (client_message);
 
   //int n = sscanf(client_message, "%s %s %s %s", Req.METHOD, Req.URL, Req.PROTOCOL, crlf );
@@ -187,6 +189,31 @@ void *connection_handler(void *socket_desc)
   message = "Server: The Fake Backend Server\r\n";
   send(sock, message, strlen(message), 0);
 
+  //Set the current time
+  char buf[LEN];
+  time_t rawtime;
+  struct tm *loc_time;
+  
+  rawtime = time(NULL);
+  loc_time = localtime(&rawtime);
+  strftime(buf, LEN, "%a, %d %b %Y %X GMT%z\r\n", loc_time);
+
+  char date[] = "Date: ";
+  strcat(date, buf);
+  send(sock, date, strlen(date), 0);
+
+  message = "Content-Type: application/json\r\n";
+  send(sock, message, strlen(message), 0);
+
+  char  body[] = "{\"format\":\"JSON\"}";
+  int body_lenght = strlen(body);
+  char body_size[20];
+  sprintf(body_size, "%d \r\n", body_lenght);
+
+  char content [] = "Content-Length: ";
+  strcat(content, body_size);
+  send(sock, content, strlen(content), 0);
+
   message = "Connection: close\r\n";
   send(sock, message, strlen(message), 0);
 
@@ -194,8 +221,8 @@ void *connection_handler(void *socket_desc)
   message = "\r\n";
   send(sock, message, strlen(message), 0);
 
-  message = "Body";
-  send(sock, message, strlen(message), 0);
+  //TODO: send the response
+  send(sock, body, strlen(body), 0);
 
   close(sock);
 
