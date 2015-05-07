@@ -5,11 +5,26 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "headers/header.h"
+#include "headers/querystring.h"
+
+#define DELIMITERS "\r\n"
+
 
 //TODO: Check if this is necesary
 int opt = 0;
-struct opts {
+
+//TODO: Change the name by conf
+struct Opts {
   long int SERVER_PORT;
+};
+
+struct Request {
+  char METHOD[10];
+  char URL[100];
+  char PROTOCOL[20];
+  struct Header HEADERS[20];
+  struct QueryString QUERYPARAMS[20];
 };
 
 
@@ -20,10 +35,10 @@ int main(int argc, char *argv[])
 {
   
   //TODO: maybe delete this
-  char *port, *endptr;
+  char *endptr;
 
   //TODO: Refactor OPTS
-  struct opts OPTS;
+  struct Opts OPTS;
   OPTS.SERVER_PORT = 8888;
 
   
@@ -50,7 +65,7 @@ int main(int argc, char *argv[])
 
   int socket_desc, new_socket, c, *new_sock;
   struct sockaddr_in server, client;
-  char *message;
+  //char *message;
 
   socket_desc = socket(AF_INET, SOCK_STREAM, 0);
   if (socket_desc == -1)
@@ -102,28 +117,74 @@ int main(int argc, char *argv[])
 
 void *connection_handler(void *socket_desc)
 {
+  struct Request Req;
+
   int sock = *(int *)socket_desc;
   int read_size;
-  char *message, client_message[2000], *pch;
+  char *message, client_message[10000], *strtorequest;
 
-  read_size = recv(sock, client_message, 2000, 0);
-  //puts(client_message);
+  read_size = recv(sock, client_message, 10000, 0);
+  //puts (client_message);
 
+  //int n = sscanf(client_message, "%s %s %s %s", Req.METHOD, Req.URL, Req.PROTOCOL, crlf );
+  //printf("Strings read:%d %s %s\n", n, Req.METHOD, crlf);
 
   //TODO: Parser HTTP Headers
-  pch = strtok(client_message, "\r\n");
-  while (pch != NULL)
+
+  //int i = 0;
+  //strcpy(headers, client_message);
+
+  strtorequest = strtok(client_message, "\r\n");
+  sscanf(strtorequest, "%s %s %s", Req.METHOD, Req.URL, Req.PROTOCOL);
+
+  while ((strtorequest = strtok(NULL, DELIMITERS)) != NULL)
   {
-    printf ("%s\n",pch);
-    pch = strtok (NULL, "\r\n");
+    //printf("Header is: %s\r\n", strtorequest);
+
+    struct Header H;
+    sscanf (strtorequest, "%s[:], %s", H.NAME, H.VALUE);
+    int i = 0;
+    Req.HEADERS[i] =  H;
+    i += 1;
+    //
+    printf("%s %s\r\n", H.NAME, H.VALUE);
   }
+  
+  //printf("Strings read:%d %s %s\n", n, Req.METHOD, crlf);
+
+  /*Req.METHOD = strtok(pch, " ");
+  Req.URL  = strtok(NULL, " ");
+  Req.PROTOCOL  = strtok(NULL, " ");*/
+
+  /*char *header = strtok(headers, "\r\n");
+  header = strtok(NULL, "\r\n");
+  while (header != NULL)
+  {
+    printf("%s\n", header);
+    header = strtok(NULL, "\r\n");
+  }*/
+
+
+  //printf("%s\n", Req.PROTOCOL);
+  /*while (pch != NULL)
+  {
+    //printf ("%s\n",pch);
+    if (i==0)
+    {
+
+    } else
+    {
+
+    }
+    pch = strtok (NULL, "\r\n");
+  }*/
 
   //TODO: Refactor The Response Headers
   //message = "HTTP/1.1 404 Not Found\r\n";
-  message = "HTTP/1.1 201 Ok\r\n";
+  message = "HTTP/1.1 200 Ok\r\n";
   send(sock, message, strlen(message), 0);
 
-  message = "Server: The Fake Server\r\n";
+  message = "Server: The Fake Backend Server\r\n";
   send(sock, message, strlen(message), 0);
 
   message = "Connection: close\r\n";
